@@ -21,7 +21,7 @@ public class IKFootSolver : MonoBehaviour
 
             if (Vector3.Distance(_footPoint, _dest) > _footSpacing)
             {
-                _footPoint = _dest;
+                _footPoint = _dest + (_dest - _footPoint).normalized * _footSpacing * 0.5f;
             }
         }
     }
