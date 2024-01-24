@@ -5,60 +5,34 @@ namespace Model.Character
 {
     public class SpiderLeg : MonoBehaviour
     {
-        private const float TARGET_TO_GROUND_LENGHT = 0.4784243f;
-        private const float LEG_TO_FOOT_LENGTH = 0.5401024f;
-        private float _footSpacing = 0.7f;
-        private Vector3 _footPoint = Vector3.zero;
-        private Vector3 _footDest = Vector3.zero;
-        private Vector3 _targetDest = Vector3.zero;
-        private TwoBoneIKConstraint _twoBoneIKConstraint = null;
+        private const float FOOT_SPACING = 0.35f;
+
+        private ChainIKConstraint _ikConstraint = null;
+        private Vector3 _footPosition = Vector3.zero;
+        private Vector3 _footRotaion = Vector3.zero;
 
         private void Awake()
         {
-            _twoBoneIKConstraint = GetComponent<TwoBoneIKConstraint>();
-        }
-
-        private void Start()
-        {
-            _footPoint = _footDest = _twoBoneIKConstraint.data.target.position + _twoBoneIKConstraint.data.target.up.normalized * LEG_TO_FOOT_LENGTH;
-            _targetDest = _twoBoneIKConstraint.data.target.position;
+            _ikConstraint = GetComponent<ChainIKConstraint>();
+            _footPosition = _ikConstraint.data.target.position;
+            _footRotaion = _ikConstraint.data.target.rotation.eulerAngles;
         }
 
         private void Update()
         {
-            bool isMove = false;
-
-            if (Physics.Raycast(_twoBoneIKConstraint.data.tip.position, _twoBoneIKConstraint.data.tip.up, out RaycastHit hit, 10f))
-            {
-                _footDest = hit.point;
-
-                if (Vector3.Distance(_footPoint, _footDest) > _footSpacing)
-                {
-                    _footPoint = _footDest + (_footDest - _footPoint).normalized * _footSpacing * 0.3f;
-                    isMove = true;
-                }
-            }
-
-            if (Physics.Raycast(_footPoint, Vector3.down, out RaycastHit hit2, 10f))
-            {
-                Debug.DrawRay(_footPoint, hit2.normal * TARGET_TO_GROUND_LENGHT);
-                if (isMove)
-                {
-                    _targetDest = _footPoint + hit2.normal * TARGET_TO_GROUND_LENGHT;
-                    _twoBoneIKConstraint.data.target.rotation = Quaternion.Euler(_twoBoneIKConstraint.data.target.up);
-                }
-            }
-            //_twoBoneIKConstraint.data.target.position = _targetDest;
+            _ikConstraint.data.target.position = _footPosition;
+            _ikConstraint.data.target.rotation = Quaternion.Euler(_footRotaion);
         }
+
         private void OnDrawGizmos()
         {
-            Gizmos.color = Color.yellow;
-            Gizmos.DrawSphere(_footPoint, 0.05f);
+            //Gizmos.color = Color.yellow;
+            //Gizmos.DrawSphere(_footPoint, 0.05f);S
 
             Gizmos.color = Color.red;
-            Gizmos.DrawSphere(_footDest, 0.05f);
+            Gizmos.DrawWireSphere(_footPosition, FOOT_SPACING);
 
-            Debug.DrawLine(_footPoint, _footDest);
+            //Debug.DrawLine(_footPoint, _footDest);
         }
     }
 }
