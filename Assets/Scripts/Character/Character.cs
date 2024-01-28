@@ -1,5 +1,3 @@
-using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
 
 namespace Model.Character
@@ -19,10 +17,12 @@ namespace Model.Character
 
         public Rigidbody Rigidbody { get; private set; } = null;
 
+        public MoveController MoveController { get; private set; } = null;
+
         private void Awake()
         {
             this.Rigidbody = GetComponent<Rigidbody>();
-            this.gameObject.AddComponent<MoveController>();
+            this.MoveController = this.gameObject.AddComponent<MoveController>();
         }
     }
 }

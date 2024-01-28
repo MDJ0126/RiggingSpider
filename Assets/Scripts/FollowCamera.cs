@@ -2,6 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
+[ExecuteInEditMode]
 public class FollowCamera : MonoBehaviour
 {
     #region Inspector
@@ -21,9 +22,23 @@ public class FollowCamera : MonoBehaviour
         }
     }
 
+    private void Update()
+    {
+        if (target == null) return;
+        if (!Application.isPlaying)
+        {
+            this.MyTransform.position = target.position;
+            this.MyTransform.rotation = target.rotation;
+        }
+    }
+
     private void FixedUpdate()
     {
-        this.MyTransform.position = Vector3.Lerp(this.MyTransform.position, target.position, 0.1f);
-        this.MyTransform.rotation = Quaternion.Lerp(this.MyTransform.rotation, target.rotation, 0.1f);
+        if (target == null) return;
+        if (Application.isPlaying)
+        {
+            this.MyTransform.position = Vector3.Lerp(this.MyTransform.position, target.position, 0.1f);
+            this.MyTransform.rotation = Quaternion.Lerp(this.MyTransform.rotation, target.rotation, 0.1f);
+        }
     }
 }
