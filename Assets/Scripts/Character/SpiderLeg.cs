@@ -7,99 +7,109 @@ namespace Model.Character
     [RequireComponent(typeof (ChainIKConstraint))]
     public class SpiderLeg : MonoBehaviour
     {
-        private const float FOOT_SPACING = 0.5f;
-        private const float MOTION_SPEED = 3f;
-        private const float STEP_HEIGHT = 0.5f;
-        private const float MOTION_INIT_DELAY = 1f;
+        private const float FOOT_SPACING = 0.7f;
+        private const float MOTION_SPEED = 7f;
+        private const float STEP_HEIGHT = 0.2f;
+        private const float RESTORE_IDLE_TIME = 1f;
 
         #region Inspector
 
+        public bool isFirstMoveLeg = false;
         public Transform motionRange;
-        public bool isStartLeg = false;
 
         #endregion
 
         private Spider _owner = null;
-        private ChainIKConstraint _ikConstraint = null;
-        private Transform _legJointsTransform = null;
+        public ChainIKConstraint ikConstraint = null;
 
         private Vector3 _newPosition = Vector3.zero;
         private Vector3 _oldPosition = Vector3.zero;
         private Vector3 _currentFootPosition = Vector3.zero;
-        private DateTime _lastUpdateTime = DateTime.MinValue;
 
-        private bool _isUpdatePosition = false;
-        private float _lerp = 1f;
-
-        private bool _isStartMove => _owner.MoveController.isMove && !_isUpdatePosition;
-
-        [ContextMenu("Auto Set Motion Range Transform")]
-        private void AutoSetMotionRangeTransform()
-        {
-            if (motionRange != null)
-            {
-                DestroyImmediate(motionRange.gameObject);
-                motionRange = null;
-            }
-            GameObject go = new GameObject("motion_range");
-            motionRange = go.transform;
-            var ikConstraint = GetComponent<ChainIKConstraint>();
-            motionRange.SetParent(this.transform);
-            motionRange.position = ikConstraint.data.tip.position;
-            motionRange.rotation = ikConstraint.data.tip.rotation;
-            motionRange.localScale = Vector3.one;
-        }
+        private float _lerp = 0f;
+        private DateTime _lastUpdateTime = DateTime.MaxValue;
+        private bool IsAnimation => _lerp < 1f;
+        private float _ownerMoveSpeed => _owner.MoveController.moveSpeed;
+        private Vector3 _direction => _owner.MoveController.direction;
+        private bool _isMoving => _owner.MoveController.isMove;
+        private bool _isIdle = true;
 
         private void Awake()
         {
             _owner = GetComponentInParent<Spider>();
-            _ikConstraint = GetComponent<ChainIKConstraint>();
-            _legJointsTransform = _ikConstraint.data.tip.transform.parent;
-            _oldPosition = _newPosition = _ikConstraint.data.target.position;
+            ikConstraint = GetComponent<ChainIKConstraint>();
+            _oldPosition = _newPosition = ikConstraint.data.target.position;
         }
 
         private void Update()
         {
-            if (_lerp == 1f)
+            SetPosition();
+            PositionAnimtion();
+            FixTarget();
+
+            // í¬ì§€ì…˜ ë³€ê²½ ì²˜ë¦¬
+            void SetPosition()
             {
-                if (_isStartMove && isStartLeg || Vector3.Distance(motionRange.position, _ikConstraint.data.target.position) > FOOT_SPACING)
+                if (!IsAnimation)
                 {
-                    Vector3 targetPos = motionRange.position + _owner.MoveController.direction * (FOOT_SPACING - 0.01f);
-                    if (Physics.Raycast(targetPos + Vector3.up * 10f, Vector3.down, out RaycastHit hit))
+                    if (_isIdle && _isMoving && isFirstMoveLeg || Vector3.Distance(motionRange.position, ikConstraint.data.target.position) > FOOT_SPACING)
                     {
-                        _lerp = 0f;
-                        _oldPosition = _newPosition;
-                        _newPosition = hit.point;
-                        _isUpdatePosition = true;
-                        _lastUpdateTime = DateTime.Now;
+                        Vector3 targetPos = motionRange.position + _direction * FOOT_SPACING;
+                        const float RAYCAST_DISTANCE = 10f;
+                        if (Physics.Raycast(targetPos + Vector3.up * RAYCAST_DISTANCE, Vector3.down, out RaycastHit hit))
+                        {
+                            _lerp = 0f;
+                            if (Vector3.Distance(motionRange.position, hit.point) <= FOOT_SPACING + 0.1f)
+                            {
+                                _oldPosition = _newPosition;
+                                _newPosition = hit.point;
+                            }
+                            else
+                            {
+                                _oldPosition = _newPosition;
+                                _newPosition = motionRange.position;
+                            }
+                            _lastUpdateTime = DateTime.Now;
+                            _isIdle = false;
+                        }
                     }
                 }
 
-                if (_isUpdatePosition && _lastUpdateTime.AddSeconds(MOTION_INIT_DELAY) < DateTime.Now)
+                if (!_isIdle)
                 {
-                    _isUpdatePosition = false;
-                    Vector3 targetPos = motionRange.position;
-                    if (Physics.Raycast(targetPos + Vector3.up * 10f, Vector3.down, out RaycastHit hit))
+                    if (_lastUpdateTime.AddSeconds(RESTORE_IDLE_TIME) < DateTime.Now)
                     {
-                        _lerp = 0f;
-                        _oldPosition = _newPosition;
-                        _newPosition = hit.point;
+                        Vector3 targetPos = motionRange.position;
+                        const float RAYCAST_DISTANCE = 10f;
+                        if (Physics.Raycast(targetPos + Vector3.up * RAYCAST_DISTANCE, Vector3.down, out RaycastHit hit))
+                        {
+                            _lerp = 0f;
+                            _oldPosition = _newPosition;
+                            _newPosition = hit.point;
+                            _lastUpdateTime = DateTime.Now;
+                            _isIdle = true;
+                        }
                     }
                 }
             }
 
-            if (_lerp < 1f)
+            // ë‹¤ë¦¬ ìœ„ì¹˜ ì• ë‹ˆë©”ì´ì…˜
+            void PositionAnimtion()
             {
-                // 0f ~ 1f Sin°ø½ÄÀ» ÅëÇÑ ¹ß ÀÌµ¿ ³ôÀÌ ¾Ö´Ï¸ÞÀÌ¼Ç Ã³¸®
-                _lerp += Time.deltaTime * MOTION_SPEED;
-                _lerp = Mathf.Min(1f, _lerp);
-                _currentFootPosition = Vector3.Lerp(_oldPosition, _newPosition, _lerp);
-                _currentFootPosition.y = _currentFootPosition.y + Mathf.Sin(_lerp * Mathf.PI) * STEP_HEIGHT;
-                _lastUpdateTime = DateTime.Now;
+                if (IsAnimation)
+                {
+                    _lerp += Time.deltaTime * MOTION_SPEED * _ownerMoveSpeed;
+                    _lerp = Mathf.Min(1f, _lerp);
+                    _currentFootPosition = Vector3.Lerp(_oldPosition, _newPosition, _lerp);
+                    _currentFootPosition.y = _currentFootPosition.y + Mathf.Sin(_lerp * Mathf.PI) * STEP_HEIGHT;
+                    _lastUpdateTime = DateTime.Now;
+                }
             }
-            _ikConstraint.data.target.position = _currentFootPosition;
-            _ikConstraint.data.target.rotation = Quaternion.Euler((_legJointsTransform.position - _ikConstraint.data.target.position).normalized);
-            Debug.DrawRay(_ikConstraint.data.target.position, _legJointsTransform.position - _ikConstraint.data.target.position);
+
+            void FixTarget()
+            {
+                ikConstraint.data.target.position = _currentFootPosition;
+            }
         }
 
         private void OnDrawGizmos()
@@ -116,5 +126,28 @@ namespace Model.Character
                 Gizmos.DrawSphere(_newPosition, 0.1f);
             }
         }
+
+        #region EDITOR FUNCTION
+
+#if UNITY_EDITOR
+        [ContextMenu("Auto Set Motion Range Transform")]
+        private void AutoSetMotionRangeTransform()
+        {
+            if (motionRange != null)
+            {
+                DestroyImmediate(motionRange.gameObject);
+                motionRange = null;
+            }
+            GameObject go = new GameObject("motion_range");
+            motionRange = go.transform;
+            var ikConstraint = GetComponent<ChainIKConstraint>();
+            motionRange.SetParent(this.transform);
+            motionRange.position = ikConstraint.data.tip.position;
+            motionRange.rotation = ikConstraint.data.tip.rotation;
+            motionRange.localScale = Vector3.one;
+        }
+#endif
+
+        #endregion
     }
 }
