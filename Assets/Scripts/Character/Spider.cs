@@ -26,7 +26,7 @@ namespace Model.Character
             position = Vector3.zero;
             for (int i = 0; i < legs.Length; i++)
             {
-                position += legs[i].ikConstraint.data.target.position;
+                position += legs[i].ikConstraint?.data.target.position ?? Vector3.zero;
             }
             position /= legs.Length;
 

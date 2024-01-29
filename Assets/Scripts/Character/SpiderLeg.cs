@@ -7,7 +7,7 @@ namespace Model.Character
     [RequireComponent(typeof (ChainIKConstraint))]
     public class SpiderLeg : MonoBehaviour
     {
-        private const float FOOT_SPACING = 0.7f;
+        private const float FOOT_SPACING = 0.5f;
         private const float MOTION_SPEED = 7f;
         private const float STEP_HEIGHT = 0.2f;
         private const float RESTORE_IDLE_TIME = 1f;
