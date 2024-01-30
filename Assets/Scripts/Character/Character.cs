@@ -22,7 +22,7 @@ namespace Model.Character
         private void Awake()
         {
             this.Rigidbody = GetComponent<Rigidbody>();
-            this.MoveController = this.gameObject.AddComponent<MoveController>();
+            this.MoveController = GetComponent<MoveController>();
         }
     }
 }

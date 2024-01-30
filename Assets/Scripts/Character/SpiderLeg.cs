@@ -4,111 +4,131 @@ using UnityEngine.Animations.Rigging;
 
 namespace Model.Character
 {
-    [RequireComponent(typeof (ChainIKConstraint))]
+    [RequireComponent(typeof (TwoBoneIKConstraint))]
     public class SpiderLeg : MonoBehaviour
     {
-        private const float FOOT_SPACING = 0.5f;
-        private const float MOTION_SPEED = 7f;
-        private const float STEP_HEIGHT = 0.2f;
-        private const float RESTORE_IDLE_TIME = 1f;
+        [Serializable]
+        public class RaycastGroup
+        {
+            [HideInInspector] public bool isInner = false;
+            public float radius = 0.2f;
+            public float height = 0.5f;
+            public int count = 5;
+            public float raycastLength = 1f;
+        }
 
         #region Inspector
 
-        public bool isFirstMoveLeg = false;
+        [Header("Motion")]
         public Transform motionRange;
+        public float footSpacing = 0.5f;
+        public float motionSpeed = 7f;
+        public float stepHeight = 0.2f;
+        public float restoreIdleTime = 1f;
+
+        [Header("Raycast")]
+        public RaycastGroup innerRacastGroup;
+        public RaycastGroup outerRacastGroup;
 
         #endregion
 
-        private Spider _owner = null;
-        public ChainIKConstraint ikConstraint = null;
+        private Spider _onwer = null;
+        public TwoBoneIKConstraint ikConstraint { get; private set; } = null;
 
         private Vector3 _newPosition = Vector3.zero;
         private Vector3 _oldPosition = Vector3.zero;
-        private Vector3 _currentFootPosition = Vector3.zero;
+        public Vector3 CurrentFootPosition { get; private set; } = Vector3.zero;
 
         private float _lerp = 0f;
-        private DateTime _lastUpdateTime = DateTime.MaxValue;
-        private bool IsAnimation => _lerp < 1f;
-        private float _ownerMoveSpeed => _owner.MoveController.moveSpeed;
-        private Vector3 _direction => _owner.MoveController.direction;
-        private bool _isMoving => _owner.MoveController.isMove;
-        private bool _isIdle = true;
 
         private void Awake()
         {
-            _owner = GetComponentInParent<Spider>();
-            ikConstraint = GetComponent<ChainIKConstraint>();
-            _oldPosition = _newPosition = ikConstraint.data.target.position;
+            _onwer = GetComponentInParent<Spider>();
+            ikConstraint = GetComponent<TwoBoneIKConstraint>();
+            _newPosition = _oldPosition = this.CurrentFootPosition = ikConstraint.data.target.position;
+            innerRacastGroup.isInner = true;
+            outerRacastGroup.isInner = false;
         }
 
-        private void Update()
+        private void FixedUpdate()
         {
-            SetPosition();
-            PositionAnimtion();
-            FixTarget();
+            bool isDone = false;
+            UpdateRaycast(outerRacastGroup, Color.red);
+            UpdateRaycast(innerRacastGroup, Color.white);
+            UpdateLegAnimation();
 
-            // 포지션 변경 처리
-            void SetPosition()
+            void UpdateRaycast(RaycastGroup raycastGroup, Color color)
             {
-                if (!IsAnimation)
+                // 1. 다음으로 이동해야할 예측 위치값 가져오기
+                bool isMove = false;
+                Vector3 nextNewPosition = Vector3.zero;
+                if (Vector3.Distance(motionRange.position, _newPosition) > footSpacing)
                 {
-                    if (_isIdle && _isMoving && isFirstMoveLeg || Vector3.Distance(motionRange.position, ikConstraint.data.target.position) > FOOT_SPACING)
+                    nextNewPosition = motionRange.position + _onwer.MoveController.Direction * footSpacing;
+                    isMove = true;
+                }
+                //if (!isMove) return;
+
+                // 2. 다음 예측 위치값과 레이케스팅으로 제일 가장 가까운 거리 검사
+                float minDistance = float.MaxValue;
+                Vector3 newPosition = Vector3.zero;
+                Vector3 startHeight = motionRange.position + motionRange.up * raycastGroup.height;
+                for (int i = 0; i < raycastGroup.count; i++)
+                {
+                    Quaternion quaternion = Quaternion.Euler(0f, (float)(360f / raycastGroup.count * i), 0f);
+                    Vector3 circleOutlinePoint = motionRange.position + motionRange.rotation * (quaternion * motionRange.position.normalized * raycastGroup.radius);
+                    Debug.DrawRay(motionRange.position, quaternion * motionRange.position.normalized * raycastGroup.radius, color);
+
+                    Vector3 start, dir;
+                    if (raycastGroup.isInner)
                     {
-                        Vector3 targetPos = motionRange.position + _direction * FOOT_SPACING;
-                        const float RAYCAST_DISTANCE = 10f;
-                        if (Physics.Raycast(targetPos + Vector3.up * RAYCAST_DISTANCE, Vector3.down, out RaycastHit hit))
+                        start = circleOutlinePoint + (circleOutlinePoint - startHeight).normalized * 0.5f;
+                        dir = (startHeight - circleOutlinePoint).normalized * raycastGroup.raycastLength;
+                    }
+                    else
+                    {
+                        start = circleOutlinePoint + (startHeight - circleOutlinePoint).normalized * 0.5f;
+                        dir = (circleOutlinePoint - startHeight).normalized * raycastGroup.raycastLength;
+                    }
+                    Debug.DrawRay(start, dir, color);
+
+                    if (isMove && !isDone)
+                    {
+                        if (Physics.Raycast(start, dir, out RaycastHit hit, raycastGroup.raycastLength))
                         {
-                            _lerp = 0f;
-                            if (Vector3.Distance(motionRange.position, hit.point) <= FOOT_SPACING + 0.1f)
+                            float distance = Vector3.Distance(nextNewPosition, hit.point);
+                            if (minDistance > distance)
                             {
-                                _oldPosition = _newPosition;
-                                _newPosition = hit.point;
+                                minDistance = distance;
+                                newPosition = hit.point;
                             }
-                            else
-                            {
-                                _oldPosition = _newPosition;
-                                _newPosition = motionRange.position;
-                            }
-                            _lastUpdateTime = DateTime.Now;
-                            _isIdle = false;
                         }
                     }
                 }
 
-                if (!_isIdle)
+                // 3. 위치 지정하여 실제 지점 변경
+                if (newPosition != Vector3.zero)
                 {
-                    if (_lastUpdateTime.AddSeconds(RESTORE_IDLE_TIME) < DateTime.Now)
-                    {
-                        Vector3 targetPos = motionRange.position;
-                        const float RAYCAST_DISTANCE = 10f;
-                        if (Physics.Raycast(targetPos + Vector3.up * RAYCAST_DISTANCE, Vector3.down, out RaycastHit hit))
-                        {
-                            _lerp = 0f;
-                            _oldPosition = _newPosition;
-                            _newPosition = hit.point;
-                            _lastUpdateTime = DateTime.Now;
-                            _isIdle = true;
-                        }
-                    }
+                    _lerp = 0f;
+                    _oldPosition = _newPosition;
+                    _newPosition = newPosition;
+                    isDone = true;
                 }
             }
 
-            // 다리 위치 애니메이션
-            void PositionAnimtion()
+            // 이동 애니메이션 구간
+            void UpdateLegAnimation()
             {
-                if (IsAnimation)
+                if (_lerp < 1f)
                 {
-                    _lerp += Time.deltaTime * MOTION_SPEED * _ownerMoveSpeed;
-                    _lerp = Mathf.Min(1f, _lerp);
-                    _currentFootPosition = Vector3.Lerp(_oldPosition, _newPosition, _lerp);
-                    _currentFootPosition.y = _currentFootPosition.y + Mathf.Sin(_lerp * Mathf.PI) * STEP_HEIGHT;
-                    _lastUpdateTime = DateTime.Now;
-                }
-            }
+                    _lerp += Time.deltaTime * motionSpeed;
+                    _lerp = Math.Min(_lerp, 1f);
 
-            void FixTarget()
-            {
-                ikConstraint.data.target.position = _currentFootPosition;
+                    Vector3 current = Vector3.Lerp(_oldPosition, _newPosition, _lerp);
+                    current.y += (float)Math.Sin(Math.PI * _lerp) * stepHeight;
+                    this.CurrentFootPosition = current;
+                }
+                ikConstraint.data.target.position = this.CurrentFootPosition;
             }
         }
 
@@ -117,7 +137,21 @@ namespace Model.Character
             if (motionRange != null)
             {
                 Gizmos.color = Color.green;
-                Gizmos.DrawWireSphere(motionRange.position, FOOT_SPACING);
+                Gizmos.DrawWireSphere(motionRange.position, footSpacing);
+
+                if (innerRacastGroup != null)
+                {
+                    Vector3 startHeight = motionRange.position + motionRange.up * innerRacastGroup.height;
+                    Gizmos.color = Color.white;
+                    Gizmos.DrawWireSphere(startHeight, 0.05f);
+                }
+
+                if (outerRacastGroup != null)
+                {
+                    Vector3 startHeight = motionRange.position + motionRange.up * outerRacastGroup.height;
+                    Gizmos.color = Color.red;
+                    Gizmos.DrawWireSphere(startHeight, 0.05f);
+                }
             }
 
             if (Application.isPlaying)
@@ -125,10 +159,10 @@ namespace Model.Character
                 Gizmos.color = Color.red;
                 Gizmos.DrawSphere(_newPosition, 0.1f);
             }
+
         }
 
         #region EDITOR FUNCTION
-
 #if UNITY_EDITOR
         [ContextMenu("Auto Set Motion Range Transform")]
         private void AutoSetMotionRangeTransform()
@@ -138,16 +172,17 @@ namespace Model.Character
                 DestroyImmediate(motionRange.gameObject);
                 motionRange = null;
             }
+            
             GameObject go = new GameObject("motion_range");
             motionRange = go.transform;
-            var ikConstraint = GetComponent<ChainIKConstraint>();
+
+            var ikConstraint = GetComponent<TwoBoneIKConstraint>();
             motionRange.SetParent(this.transform);
             motionRange.position = ikConstraint.data.tip.position;
-            motionRange.rotation = ikConstraint.data.tip.rotation;
+            motionRange.rotation = Quaternion.Euler(Vector3.zero);
             motionRange.localScale = Vector3.one;
         }
 #endif
-
         #endregion
     }
 }
