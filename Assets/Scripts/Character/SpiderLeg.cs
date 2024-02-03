@@ -37,6 +37,7 @@ namespace Model.Character
 
         private Vector3 _newPosition = Vector3.zero;
         private Vector3 _oldPosition = Vector3.zero;
+        private Vector3 _nextNewPosition = Vector3.zero;
         public Vector3 CurrentFootPosition { get; private set; } = Vector3.zero;
 
         private float _lerp = 0f;
@@ -61,10 +62,10 @@ namespace Model.Character
             {
                 // 1. 다음으로 이동해야할 예측 위치값 가져오기
                 bool isMove = false;
-                Vector3 nextNewPosition = Vector3.zero;
                 if (Vector3.Distance(motionRange.position, _newPosition) > footSpacing)
                 {
-                    nextNewPosition = motionRange.position + _onwer.MoveController.Direction * footSpacing;
+                    _nextNewPosition = motionRange.position + _onwer.MoveController.Direction * footSpacing;
+                    Debug.Log(_onwer.MoveController.Direction);
                     isMove = true;
                 }
                 //if (!isMove) return;
@@ -77,7 +78,7 @@ namespace Model.Character
                 {
                     Quaternion quaternion = Quaternion.Euler(0f, (float)(360f / raycastGroup.count * i), 0f);
                     Vector3 circleOutlinePoint = motionRange.position + motionRange.rotation * (quaternion * motionRange.position.normalized * raycastGroup.radius);
-                    Debug.DrawRay(motionRange.position, quaternion * motionRange.position.normalized * raycastGroup.radius, color);
+                    //Debug.DrawRay(motionRange.position, quaternion * motionRange.position.normalized * raycastGroup.radius, color);
 
                     Vector3 start, dir;
                     if (raycastGroup.isInner)
@@ -96,7 +97,7 @@ namespace Model.Character
                     {
                         if (Physics.Raycast(start, dir, out RaycastHit hit, raycastGroup.raycastLength))
                         {
-                            float distance = Vector3.Distance(nextNewPosition, hit.point);
+                            float distance = Vector3.Distance(_nextNewPosition, hit.point);
                             if (minDistance > distance)
                             {
                                 minDistance = distance;
@@ -111,7 +112,8 @@ namespace Model.Character
                 {
                     _lerp = 0f;
                     _oldPosition = _newPosition;
-                    _newPosition = newPosition;
+                    Vector3 direction = (newPosition - motionRange.position).normalized;
+                    _newPosition = motionRange.position + direction * footSpacing;
                     isDone = true;
                 }
             }
@@ -157,7 +159,10 @@ namespace Model.Character
             if (Application.isPlaying)
             {
                 Gizmos.color = Color.red;
-                Gizmos.DrawSphere(_newPosition, 0.1f);
+                Gizmos.DrawSphere(_newPosition, 0.05f);
+
+                Gizmos.color = Color.blue;
+                Gizmos.DrawSphere(_nextNewPosition, 0.05f);
             }
 
         }
