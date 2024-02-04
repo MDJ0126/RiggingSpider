@@ -65,7 +65,6 @@ namespace Model.Character
                 if (Vector3.Distance(motionRange.position, _newPosition) > footSpacing)
                 {
                     _nextNewPosition = motionRange.position + _onwer.MoveController.Direction * footSpacing;
-                    Debug.Log(_onwer.MoveController.Direction);
                     isMove = true;
                 }
                 //if (!isMove) return;

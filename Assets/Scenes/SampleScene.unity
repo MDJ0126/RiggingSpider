@@ -177,10 +177,10 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   legs:
-  - {fileID: 0}
-  - {fileID: 0}
-  - {fileID: 0}
-  - {fileID: 0}
+  - {fileID: 814440702}
+  - {fileID: 2125901342}
+  - {fileID: 339937596}
+  - {fileID: 1620445144}
 --- !u!54 &129693851
 Rigidbody:
   m_ObjectHideFlags: 0
