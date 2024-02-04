@@ -17,10 +17,6 @@ Unity의 Animation Rigging 패키지를 이용한 학습 프로젝트입니다.
 
 삼각함수 "Sin * PI" 을 통한 개념으로, 이동할 때 0f~1f로 Lerp를 통해서 애니메이션을 매프레임마다 위치를 이동합니다.
 
-## 사용된 패키지
-1. Animation Rigging (Built-in)
-2. Spider orange. (https://assetstore.unity.com/packages/3d/characters/robots/spider-orange-181154)
-
 ## 이슈
 
 1. 다리 이동 범위가 짧아서 다음 예측 이동 거리를 못 찾을 경우, 지형을 떠나 공중 이동됨
@@ -28,3 +24,10 @@ Unity의 Animation Rigging 패키지를 이용한 학습 프로젝트입니다.
 
 2. 지그재그 패턴을 적용하지 않았음
 <img src="https://raw.githubusercontent.com/MDJ0126/RiggingSpider/main/Image/issue2.gif" alt="github_profile" width="500px" height="auto">
+
+### 사용된 패키지
+1. Animation Rigging (Built-in)
+2. Spider orange. (https://assetstore.unity.com/packages/3d/characters/robots/spider-orange-181154)
+
+### 유니티 엔진 버전
+Unity 2022.3.16f1 (플래폼 PC)
